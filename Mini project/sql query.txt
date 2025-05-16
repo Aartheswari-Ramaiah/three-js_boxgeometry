@@ -1,0 +1,14 @@
+CREATE DATABASE clinicdb;
+USE clinicdb;
+CREATE TABLE appointments (
+     appointment_id INT AUTO_INCREMENT PRIMARY KEY,
+     patient_name VARCHAR(100) NOT NULL,
+     doctor_name VARCHAR(100) NOT NULL,
+     appointment_date DATE NOT NULL,
+     appointment_time TIME NOT NULL
+   );
+
+INSERT INTO appointments (patient_name, doctor_name, appointment_date, appointment_time)
+    VALUES
+    ('John Doe', 'Dr. Smith', '2025-04-20', '10:00:00'),
+    ('Jane Roe', 'Dr. Watson', '2025-04-21', '11:30:00');

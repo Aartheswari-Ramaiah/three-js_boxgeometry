@@ -1,0 +1,239 @@
+package com.mycompany.clinicappointmentsystem;
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.sql.*;
+
+public class ClinicAppointmentSystem {
+    static DefaultTableModel model = new DefaultTableModel();
+    public static void main(String[] args) {
+        showLoginScreen();
+    }
+    private static void showLoginScreen() {
+        JFrame loginFrame = new JFrame("Clinic System Login");
+        JPanel panel = new JPanel(new GridLayout(3, 2));
+
+        JTextField userField = new JTextField();
+        JPasswordField passField = new JPasswordField();
+        JButton loginButton = new JButton("Login");
+
+        panel.add(new JLabel("Username:"));
+        panel.add(userField);
+        panel.add(new JLabel("Password:"));
+        panel.add(passField);
+        panel.add(new JLabel());
+        panel.add(loginButton);
+
+        loginFrame.add(panel);
+        loginFrame.setSize(300, 150);
+        loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        loginFrame.setLocationRelativeTo(null);
+        loginFrame.setVisible(true);
+
+        loginButton.addActionListener(e -> {
+            String user = userField.getText();
+            String pass = new String(passField.getPassword());
+
+            if (user.equals("admin") && pass.equals("clinic123")) {
+                loginFrame.dispose();
+                showAppointmentGUI();
+            } else {
+                JOptionPane.showMessageDialog(null, "Invalid Login");
+            }
+        });
+    }
+    private static void showAppointmentGUI() {
+        JFrame frame = new JFrame("Clinic Appointment Management");
+
+        JTable table = new JTable(model);
+        model.setColumnIdentifiers(new Object[]{"Appointment ID", "Patient Name", "Doctor Name", "Date", "Time"});
+
+        fetchAppointments();
+
+        JButton addBtn = new JButton("Add Appointment");
+        JButton deleteBtn = new JButton("Delete Appointment");
+        JButton updateBtn = new JButton("Update Appointment");
+
+        addBtn.addActionListener(e -> showAddAppointmentDialog());
+        deleteBtn.addActionListener(e -> showDeleteAppointmentDialog());
+        updateBtn.addActionListener(e -> showUpdateAppointmentDialog());
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(addBtn);
+        buttonPanel.add(deleteBtn);
+        buttonPanel.add(updateBtn);
+
+        frame.add(new JScrollPane(table), BorderLayout.CENTER);
+        frame.add(buttonPanel, BorderLayout.SOUTH);
+
+        frame.setSize(800, 400);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
+    private static void fetchAppointments() {
+        model.setRowCount(0);
+        try {
+            String url = "jdbc:mysql://localhost:3306/clinicdb?useSSL=false&serverTimezone=UTC";
+            String user = "root";
+            String password = "A@191005";
+
+            try (Connection conn = DriverManager.getConnection(url, user, password)) {
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT * FROM appointments");
+
+                while (rs.next()) {
+                    model.addRow(new Object[]{
+                        rs.getInt("appointment_id"),
+                        rs.getString("patient_name"),
+                        rs.getString("doctor_name"),
+                        rs.getDate("appointment_date"),
+                        rs.getTime("appointment_time")
+                    });
+                }
+            }
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(null, "Error fetching appointments: " + ex.getMessage());
+        }
+    }
+    private static void showAddAppointmentDialog() {
+        JTextField patientField = new JTextField();
+        JTextField doctorField = new JTextField();
+        JTextField dateField = new JTextField("YYYY-MM-DD");
+        JTextField timeField = new JTextField("HH:MM:SS");
+
+        JPanel panel = new JPanel(new GridLayout(4, 2));
+        panel.add(new JLabel("Patient Name:"));
+        panel.add(patientField);
+        panel.add(new JLabel("Doctor Name:"));
+        panel.add(doctorField);
+        panel.add(new JLabel("Date (YYYY-MM-DD):"));
+        panel.add(dateField);
+        panel.add(new JLabel("Time (HH:MM:SS):"));
+        panel.add(timeField);
+
+        int result = JOptionPane.showConfirmDialog(null, panel, "Add Appointment", JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            try {
+                String url = "jdbc:mysql://localhost:3306/clinicdb?useSSL=false&serverTimezone=UTC";
+                String user = "root";
+                String password = "A@191005";
+                int inserted;
+                try (Connection conn = DriverManager.getConnection(url, user, password)) {
+                    PreparedStatement stmt = conn.prepareStatement("INSERT INTO appointments (patient_name, doctor_name, appointment_date, appointment_time) VALUES (?, ?, ?, ?)");
+                    stmt.setString(1, patientField.getText());
+                    stmt.setString(2, doctorField.getText());
+                    stmt.setDate(3, Date.valueOf(dateField.getText()));
+                    stmt.setTime(4, Time.valueOf(timeField.getText()));
+                    inserted = stmt.executeUpdate();
+                }
+                if (inserted > 0) {
+                    JOptionPane.showMessageDialog(null, "Appointment added successfully.");
+                    fetchAppointments();
+                } else {
+                    JOptionPane.showMessageDialog(null, "Failed to add appointment.");
+                }
+
+            } catch (HeadlessException | SQLException ex) {
+                JOptionPane.showMessageDialog(null, "Error: " + ex.getMessage());
+            }
+        }}
+    private static void showDeleteAppointmentDialog() {
+        JTable table = new JTable(model);
+        JScrollPane scrollPane = new JScrollPane(table);
+
+        int result = JOptionPane.showConfirmDialog(null, scrollPane, "Select a Row to Delete", JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            int row = table.getSelectedRow();
+            if (row == -1) {
+                JOptionPane.showMessageDialog(null, "Please select a row.");
+                return;
+            }
+            int appointmentId = (int) model.getValueAt(row, 0);
+
+            try {
+                String url = "jdbc:mysql://localhost:3306/clinicdb?useSSL=false&serverTimezone=UTC";
+                String user = "root";
+                String password = "A@191005";
+
+                int deleted;
+                try (Connection conn = DriverManager.getConnection(url, user, password)) {
+                    PreparedStatement stmt = conn.prepareStatement("DELETE FROM appointments WHERE appointment_id = ?");
+                    stmt.setInt(1, appointmentId);
+                    deleted = stmt.executeUpdate();
+                }
+                if (deleted > 0) {
+                    JOptionPane.showMessageDialog(null, "Appointment deleted successfully.");
+                    fetchAppointments();
+                } else {
+                    JOptionPane.showMessageDialog(null, "Deletion failed.");
+                }
+            } catch (HeadlessException | SQLException ex) {
+                JOptionPane.showMessageDialog(null, "Error: " + ex.getMessage());
+            }
+        }
+    }
+    private static void showUpdateAppointmentDialog() {
+        JTable table = new JTable(model);
+        JScrollPane scrollPane = new JScrollPane(table);
+
+        int result = JOptionPane.showConfirmDialog(null, scrollPane, "Select a Row to Update", JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            int row = table.getSelectedRow();
+
+            if (row == -1) {
+                JOptionPane.showMessageDialog(null, "Please select a row.");
+                return;
+            }
+            int appointmentId = (int) model.getValueAt(row, 0);
+            String currentPatient = (String) model.getValueAt(row, 1);
+            String currentDoctor = (String) model.getValueAt(row, 2);
+            String currentDate = model.getValueAt(row, 3).toString();
+            String currentTime = model.getValueAt(row, 4).toString();
+
+            JTextField patientField = new JTextField(currentPatient);
+            JTextField doctorField = new JTextField(currentDoctor);
+            JTextField dateField = new JTextField(currentDate);
+            JTextField timeField = new JTextField(currentTime);
+
+            JPanel panel = new JPanel(new GridLayout(4, 2));
+            panel.add(new JLabel("Patient Name:"));
+            panel.add(patientField);
+            panel.add(new JLabel("Doctor Name:"));
+            panel.add(doctorField);
+            panel.add(new JLabel("Date (YYYY-MM-DD):"));
+            panel.add(dateField);
+            panel.add(new JLabel("Time (HH:MM:SS):"));
+            panel.add(timeField);
+            int confirm = JOptionPane.showConfirmDialog(null, panel, "Update Appointment", JOptionPane.OK_CANCEL_OPTION);
+            if (confirm == JOptionPane.OK_OPTION) {
+                try {
+                    String url = "jdbc:mysql://localhost:3306/clinicdb?useSSL=false&serverTimezone=UTC";
+                    String user = "root";
+                    String password = "A@191005";
+
+                    int updated;
+                    try (Connection conn = DriverManager.getConnection(url, user, password)) {
+                        String query = "UPDATE appointments SET patient_name=?, doctor_name=?, appointment_date=?, appointment_time=? WHERE appointment_id=?";
+                        PreparedStatement pstmt = conn.prepareStatement(query);
+                        pstmt.setString(1, patientField.getText());
+                        pstmt.setString(2, doctorField.getText());
+                        pstmt.setDate(3, Date.valueOf(dateField.getText()));
+                        pstmt.setTime(4, Time.valueOf(timeField.getText()));
+                        pstmt.setInt(5, appointmentId);
+                        updated = pstmt.executeUpdate();
+                    }
+                    if (updated > 0) {
+                        JOptionPane.showMessageDialog(null, "Appointment updated successfully.");
+                        fetchAppointments();
+                    } else {
+                        JOptionPane.showMessageDialog(null, "Update failed.");
+                    }
+
+                } catch (HeadlessException | SQLException ex) {
+                    JOptionPane.showMessageDialog(null, "Error: " + ex.getMessage());
+                }
+            }
+        }
+    }
+}
